@@ -1,0 +1,43 @@
+name: 1 — Generate Article (Auto)
+
+on:
+  schedule:
+    - cron: '0 2 * * 2,4,6'   # Tue, Thu, Sat — 2am UTC
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install -r requirements.txt
+
+      - name: Generate long-form article + visuals + ad slots
+        env:
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          BLOGGER_BLOG_ID:        ${{ secrets.BLOGGER_BLOG_ID }}
+          BLOGGER_CLIENT_ID:      ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET:  ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN:  ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          GMAIL_USER:             ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:     ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL:           ${{ secrets.NOTIFY_EMAIL }}
+        run: python scripts/scheduler.py --action generate
+
+      - name: Save updated drafts.json
+        run: |
+          git config user.email "bot@blog"
+          git config user.name "Blog Bot"
+          git add data/drafts.json
+          git diff --staged --quiet || git commit -m "🤖 Article drafted [skip ci]"
+          git push
